@@ -67,7 +67,6 @@ class Monitor:
     def monitor(self, interval=0):
         sessionlist  = self.get_sessions()
         userstats    = self.get_userstats(sessionlist)
-        print(userstats)
         fstring      = self.format_userstats(userstats)
         print(fstring, end=' ')
 
@@ -117,7 +116,6 @@ class Monitor:
                     print('Failed to read file ' + logfile + ", file doesn't exist?")
                     sys.exit(1) # error, so non-zero return code
             self.lastfile = logfile_data
-            print(sessionlist)
             return sessionlist
         else:
             print("Could not read logfile '%s', please specify a logfile. See:" % logfilefilter)
@@ -139,7 +137,7 @@ class Monitor:
 
             activesessions.setdefault(pid, {
                 "interface":      None,
-                "username":       None,
+                "username":       "Unknown",
                 "ip4":            None,
                 "ppp_remoteip4":  None,
                 "ppp_localip4":   None,
@@ -165,6 +163,8 @@ class Monitor:
                 timestamp	= m_username_ts.group(1)
                 # interface	= m_ipup.group(2)
                 username	= m_username_ts.group(2)
+                if not username:
+                    username = "Unknown"
                 # ip4	= m_ipup.group(4)
                 session['status']         = 'open'
                 session['timestamp_open']	= datetime.strptime(timestamp, self.fmt_timestamp).replace(year=datetime.now().year)
@@ -260,7 +260,6 @@ class Monitor:
         fstring += "\n"
         for username in sorted(users.keys()):
             user = users[username]
-
             if user['ppp_remoteip4']:
                 ppp_remoteip4 = user['ppp_remoteip4']
                 ip4 = user['ip4']
