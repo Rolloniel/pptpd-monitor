@@ -40,11 +40,15 @@ class Monitor:
 
     # Some regular expressions that match log entries
     # pptpd               pppd[<PID>]
+    # username            <TIMESTAMP> ... pppd[PID]: rcvd [CHAP Response ... name =<USERNAME>]
+    # interface           Using interface <INTERFACE>
     # ipup                <TIMESTAMP> ... pppd[PID]: ... ip-up <INTERFACE> <USERNAME> <IP4>
     # close               Sent <TX> bytes, received <RX> bytes
     # ppp_remoteip4       remote IP address <IP4>
     # ppp_localip4        local IP address <IP4>
     r_pptpd               = re.compile(r"pppd\[(\d+)\]")
+    r_ppp_username_ts     = re.compile(r'(.+) [^\s]+ pppd\[\d+\]: rcvd \[CHAP Response id=[^\s]+ <[a-zA-Z0-9\-\.]+>, name = "([^\s]+)"]')
+    r_ppp_interface       = re.compile(r"pppd\[\d+\]: Using interface ([a-zA-Z0-9]+)")
     r_ppp_ipup            = re.compile(r"(.+?) [a-zA-Z0-9\-\.]+ pppd\[\d+\]: pptpd-logwtmp.so ip-up ([a-z0-9]+) ([^\s]+) (\d+\.\d+\.\d+\.\d+)")
     r_ppp_close           = re.compile(r"Sent (\d+) bytes, received (\d+) bytes")
     r_ppp_remoteip4       = re.compile(r"remote IP address (\d+\.\d+\.\d+\.\d+)")
@@ -63,6 +67,7 @@ class Monitor:
     def monitor(self, interval=0):
         sessionlist  = self.get_sessions()
         userstats    = self.get_userstats(sessionlist)
+        print(userstats)
         fstring      = self.format_userstats(userstats)
         print(fstring, end=' ')
 
@@ -112,6 +117,7 @@ class Monitor:
                     print('Failed to read file ' + logfile + ", file doesn't exist?")
                     sys.exit(1) # error, so non-zero return code
             self.lastfile = logfile_data
+            print(sessionlist)
             return sessionlist
         else:
             print("Could not read logfile '%s', please specify a logfile. See:" % logfilefilter)
@@ -154,17 +160,22 @@ class Monitor:
                 session['ppp_remoteip4'] = match.group(1)
 
             # PPTP session started
-            m_ipup  = self.r_ppp_ipup.search(line)
-            if m_ipup:
-                timestamp	= m_ipup.group(1)
-                interface	= m_ipup.group(2)
-                username	= m_ipup.group(3)
-                ip4	= m_ipup.group(4)
+            m_username_ts  = self.r_ppp_username_ts.search(line)
+            if m_username_ts:
+                timestamp	= m_username_ts.group(1)
+                # interface	= m_ipup.group(2)
+                username	= m_username_ts.group(2)
+                # ip4	= m_ipup.group(4)
                 session['status']         = 'open'
                 session['timestamp_open']	= datetime.strptime(timestamp, self.fmt_timestamp).replace(year=datetime.now().year)
-                session['interface']	= interface
+                # session['interface']	= interface
                 session['username']		= username
-                session['ip4']		= ip4
+                # session['ip4']		= ip4
+
+            m_interface = self.r_ppp_interface.search(line)
+            if m_interface:
+                interface = m_interface.group(1)
+                session['interface']	= interface
 
             # PPTP session closed
             m_close = self.r_ppp_close.search(line)
@@ -183,8 +194,6 @@ class Monitor:
                 # (after long uptime, or reboot)
                 # and we dont want stats to be merged!
                 del activesessions[pid]
-
-
 
     def get_userstats(self, sessions):
         # Gather statistics per user
@@ -216,9 +225,9 @@ class Monitor:
                 user['ip4']           = session['ip4']
                 user['ppp_remoteip4'] = session['ppp_remoteip4']
 
-                ctx, crx = getInterfaceTotals(session['interface'])
-                user['crx'] = crx
-                user['ctx'] = ctx
+                # ctx, crx = getInterfaceTotals(session['interface'])
+                # user['crx'] = crx
+                # user['ctx'] = ctx
                 user['timestamp_open'] = session['timestamp_open']
 
             # Totals
@@ -276,7 +285,7 @@ class Monitor:
             fstring += sizeof_fmt(user['crx']).rjust(8)
 
             try:
-                fstring += str(now - user['timestamp_open']).rjust(20)
+                fstring += str(self.now - user['timestamp_open']).rjust(20)
             except:
                 fstring += str(user['lastseen']).rjust(20)
 
