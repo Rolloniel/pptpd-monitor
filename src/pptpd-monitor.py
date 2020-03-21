@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
   monitor = Monitor(logfile, logrotate)
 
-  if args.watch and args.delay:
+  if args.watch:
     monitor.monitor(interval=args.delay)
   else:
     monitor.monitor()
